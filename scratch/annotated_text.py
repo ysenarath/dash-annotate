@@ -156,11 +156,6 @@ def register_callbacks(app):
     )
     def update_selection_store(n_events, event):
         """Update the selection store when selection changes."""
-        # if not dash.callback_context.triggered:
-        #     return None
-        # n_blur_prop = dash.callback_context.triggered[0]["prop_id"]
-        # if n_blur_prop.endswith(".n_clicks"):
-        #     return None
         if event:
             start = event["srcElement.selectionStart"]
             end = event["srcElement.selectionEnd"]
@@ -179,31 +174,54 @@ def register_callbacks(app):
             return ""
         if not annotations_data:
             annotations_data = []
-        # Sort annotations by start position
-        sorted_annotations = sorted(annotations_data, key=lambda x: x["start"])
-        # Build text parts with annotations
+
+        # Create a list of all boundary points (start and end positions)
+        boundaries = []
+        for ann in annotations_data:
+            boundaries.append((ann["start"], "start", ann["id"]))
+            boundaries.append((ann["end"], "end", ann["id"]))
+
+        # Sort boundaries by position
+        boundaries.sort(
+            key=lambda x: (x[0], x[1] != "end")
+        )  # Ensure "end" comes after "start" at same position
+
+        # Build text parts with proper handling of overlapping annotations
         parts = []
-        last_index = 0
-        for annotation in sorted_annotations:
-            # Add text before annotation
-            if annotation["start"] > last_index:
-                parts.append(
-                    html.Span(
-                        text[last_index : annotation["start"]], id=f"text-{last_index}"
+        last_pos = 0
+        active_annotations = set()
+
+        for pos, boundary_type, ann_id in boundaries:
+            # Add non-annotated text before this boundary if there is any
+            if pos > last_pos:
+                if not active_annotations:
+                    # No active annotations - render as plain text
+                    parts.append(html.Span(text[last_pos:pos], id=f"text-{last_pos}"))
+                else:
+                    # Text with active annotations
+                    parts.append(
+                        html.Span(
+                            text[last_pos:pos],
+                            className=f"border-b-2 border-blue-400 bg-blue-50",
+                            style={
+                                "opacity": min(0.2 + len(active_annotations) * 0.2, 1)
+                            },
+                            id=f"overlap-{'-'.join(sorted(active_annotations))}",
+                        )
                     )
-                )
-            # Add annotated text
-            parts.append(
-                html.Span(
-                    text[annotation["start"] : annotation["end"]],
-                    className="border-b-2 border-blue-400 bg-blue-50",
-                    id=f"annotation-{annotation['id']}",
-                )
-            )
-            last_index = annotation["end"]
-        # Add remaining text
-        if last_index < len(text):
-            parts.append(html.Span(text[last_index:], id=f"text-{last_index}"))
+
+            # Update active annotations set
+            if boundary_type == "start":
+                active_annotations.add(ann_id)
+            else:
+                active_annotations.discard(ann_id)
+
+            last_pos = pos
+
+        # Add remaining text after last boundary
+        if last_pos < len(text):
+            parts.append(html.Span(text[last_pos:], id=f"text-{last_pos}"))
+
         return parts
 
     @app.callback(
