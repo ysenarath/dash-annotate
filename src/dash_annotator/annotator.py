@@ -40,34 +40,6 @@ class Annotation:
 
 
 class TextAnnotator(html.Div):
-    """
-    A Dash component for interactive text annotation.
-
-    This component allows users to select text and create annotations with notes.
-    It provides a rich interface for managing annotations including adding,
-    viewing, and removing them.
-
-    Args:
-        id: Unique identifier for the component instance
-        value: Initial text content
-        annotations: List of initial annotations
-        className: Additional CSS classes for styling
-
-    Example:
-        ```python
-        import dash
-        from dash_annotator import DashAnnotator, register_callbacks
-
-        app = dash.Dash(__name__)
-        app.layout = DashAnnotator(
-            id="my-annotator",
-            value="Text to annotate",
-            className="max-w-2xl mx-auto"
-        )
-        register_callbacks(app)
-        ```
-    """
-
     def __init__(
         self,
         id: str,
@@ -75,6 +47,7 @@ class TextAnnotator(html.Div):
         annotations: Optional[List[Annotation]] = None,
         className: str = "",
     ):
+        self.id_ = id
         if annotations is None:
             annotations = []
         text_store = dcc.Store(
@@ -102,7 +75,6 @@ class TextAnnotator(html.Div):
         ]
         main_container = html.Div(
             [
-                # Editor area
                 html.Div(
                     [
                         # Textarea for editing - using only supported attributes
@@ -129,40 +101,17 @@ class TextAnnotator(html.Div):
                             className="w-full h-48 p-3 text-lg whitespace-pre-wrap pointer-events-none",
                         ),
                     ],
-                    className="relative border rounded-lg shadow-sm mb-4",
-                ),
-                # Controls
-                html.Div(
-                    [
-                        html.Button(
-                            "Add Annotation",
-                            id={"type": "add-button", "id": id},
-                            className="px-4 py-2 rounded bg-gray-200 text-gray-500",
-                        ),
-                    ],
-                    className="flex gap-4 mb-4",
-                ),
-                # Annotations list
-                html.Div(
-                    id={"type": "annotations-list", "id": id},
-                    className="space-y-2",
-                ),
-                # Instructions
-                html.Div(
-                    "Select text and click 'Add Annotation' to create an annotation.",
-                    className="mt-2 text-sm text-gray-600",
-                ),
+                    className="relative border rounded-lg shadow-sm mb-4 w-100",
+                )
             ],
-            className=f"p-4 {className}",
+            className=className,
         )
         # Call parent constructor with all children
         super().__init__(
             [
-                # Hidden stores for state management
                 text_store,
                 annotations_store,
                 selection_store,
-                # Main editor container
                 main_container,
             ]
         )
@@ -173,6 +122,23 @@ class TextAnnotator(html.Div):
             ),
             Input({"type": "textarea", "id": id}, "id"),
             prevent_initial_call=False,
+        )
+
+
+class AnnotateButton(html.Button):
+    def __init__(self, for_: str, label: str = "Add Annotation"):
+        super().__init__(
+            label,
+            id={"type": "add-button", "id": for_},
+            className="px-4 py-2 rounded bg-gray-200 text-gray-500",
+        )
+
+
+class AnnotationsList(html.Div):
+    def __init__(self, for_: str):
+        super().__init__(
+            id={"type": "annotations-list", "id": for_},
+            className="space-y-2",
         )
 
 
