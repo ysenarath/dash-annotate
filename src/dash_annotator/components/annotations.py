@@ -1,11 +1,14 @@
 """AnnotationsList component for displaying and managing annotations."""
 
 from dash import html, callback, Output, Input, MATCH
+import dash
 from dash_annotator.components.base import BaseAnnotation
 
 __all__ = [
     "AnnotationList",
 ]
+
+ids = BaseAnnotation.ids
 
 
 class AnnotationList(html.Div, BaseAnnotation):
@@ -18,6 +21,7 @@ class AnnotationList(html.Div, BaseAnnotation):
         if "className" not in kwargs:
             kwargs["className"] = ""
         kwargs["className"] += "space-y-2 mt-4"
+        self.for_id = for_
         super().__init__(id=self.ids.annotations_list(for_), *args, **kwargs)
 
     @callback(
@@ -28,6 +32,8 @@ class AnnotationList(html.Div, BaseAnnotation):
         """Update the annotations list display."""
         if not annotations_data:
             return []
+        # get input id
+        annotator_id = dash.callback_context.triggered_id["id"]
         return [
             html.Div(
                 [
@@ -40,11 +46,9 @@ class AnnotationList(html.Div, BaseAnnotation):
                     ),
                     html.Button(
                         "Remove",
-                        id=BaseAnnotation.ids.remove_annotation(MATCH, ann["id"]),
-                        className="text-red-500 hover:text-red-700",
+                        id=ids.remove_annotation(annotator_id, ann["id"]),
                     ),
                 ],
-                className="flex items-start gap-2 p-2 bg-gray-50 rounded",
             )
             for ann in annotations_data
         ]

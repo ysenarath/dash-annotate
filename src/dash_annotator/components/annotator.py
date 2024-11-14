@@ -1,15 +1,6 @@
 """DashAnnotator component for text annotation in Dash applications."""
 
-from dash import (
-    html,
-    dcc,
-    Input,
-    Output,
-    ClientsideFunction,
-    clientside_callback,
-    callback,
-    MATCH,
-)
+from dash import html, dcc, Input, Output, clientside_callback, callback, MATCH
 from dataclasses import asdict
 from typing import List, Optional
 
@@ -78,12 +69,12 @@ class TextAnnotator(html.Div, BaseAnnotation):
                                     "right": "0",
                                     "bottom": "0",
                                     "padding": "0.5rem",
-                                    "font-size": "1rem",
-                                    "line-height": "1rem",
-                                    "background-color": "transparent",
+                                    "fontSize": "1rem",
+                                    "lineHeight": "1rem",
+                                    "backgroundColor": "transparent",
                                     "resize": "none",
                                     "zIndex": "10",
-                                    "font-family": DEFAULT_FONT,
+                                    "fontFamily": DEFAULT_FONT,
                                     "overflow": "hidden",
                                 },
                                 persistence=True,
@@ -103,11 +94,11 @@ class TextAnnotator(html.Div, BaseAnnotation):
                                 "right": "0",
                                 "bottom": "0",
                                 "padding": "0.5rem",
-                                "font-size": "1rem",
-                                "line-height": "1rem",
-                                "white-space": "pre-wrap",
-                                "pointer-events": "none",
-                                "font-family": DEFAULT_FONT,
+                                "fontSize": "1rem",
+                                "lineHeight": "1rem",
+                                "whiteSpace": "pre-wrap",
+                                "pointerEvents": "none",
+                                "fontFamily": DEFAULT_FONT,
                             },
                         ),
                     ],
@@ -123,18 +114,33 @@ class TextAnnotator(html.Div, BaseAnnotation):
             ],
             style={
                 "position": "relative",
-                "border-raadius": "0.5rem",
-                "border-width": "1px",
-                "box-shadow": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                "min-height": "3rem",
+                "borderRaadius": "0.5rem",
+                "borderWidth": "1px",
+                "boxShadow": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                "minHeight": "3rem",
             },
             id=self.ids.main_container(id),
         )
         # Add clientside callback for selection handling
         clientside_callback(
-            ClientsideFunction(
-                namespace="clientside", function_name="handleTextSelection"
-            ),
+            # ClientsideFunction(
+            #     namespace="clientside", function_name="handleTextSelection"
+            # ),
+            """function(id) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const textarea = document.querySelector(`#${id}`);
+        console.log(textarea);
+        if (textarea && range.startContainer.parentElement.id === id) {
+            return {
+                start: textarea.selectionStart,
+                end: textarea.selectionEnd
+            };
+        }
+    }
+    return null;
+}""",
             Input(self.ids.textarea(id), "id"),
             prevent_initial_call=False,
         )
@@ -198,9 +204,9 @@ class TextAnnotator(html.Div, BaseAnnotation):
                             # className=f"border-b-2 border-blue-400 bg-blue-50",
                             style={
                                 "opacity": min(0.2 + len(active_annotations) * 0.2, 1),
-                                "border-bottom-width": "2px",
-                                "border-color": "blue",
-                                "background-color": "blue",
+                                "borderBottomWidth": "2px",
+                                "borderColor": "blue",
+                                "backgroundColor": "blue",
                             },
                             id=f"overlap-{'-'.join(sorted(active_annotations))}",
                         )

@@ -1,8 +1,7 @@
 """AnnotateButton component for adding annotations."""
 
-from dash import html, Input, Output, State, callback, MATCH
+from dash import html, Input, Output, State, callback, MATCH, ALL
 import dash
-import json
 import uuid
 
 from dash_annotator.components.base import BaseAnnotation
@@ -48,10 +47,7 @@ class AnnotateButton(html.Button, BaseAnnotation):
     @callback(
         Output(ids.annotations_store(MATCH), "data"),
         Input(ids.add_button(MATCH), "n_clicks"),
-        Input(
-            ids.remove_annotation(MATCH, dash.ALL),
-            "n_clicks",
-        ),
+        Input(ids.remove_annotation(MATCH, ALL), "n_clicks"),
         State(ids.text_store(MATCH), "data"),
         State(ids.selection_store(MATCH), "data"),
         State(ids.annotations_store(MATCH), "data"),
@@ -67,7 +63,6 @@ class AnnotateButton(html.Button, BaseAnnotation):
         trigger = ctx.triggered[0]["prop_id"]
         if not annotations_data:
             annotations_data = []
-
         if "add-button" in trigger and selection_data:
             new_annotation = {
                 "id": str(uuid.uuid4()),
@@ -77,9 +72,7 @@ class AnnotateButton(html.Button, BaseAnnotation):
                 "note": "Sample annotation note",
             }
             return annotations_data + [new_annotation]
-
         if "remove-annotation" in trigger:
-            annotation_id = json.loads(trigger.split(".")[0])["index"]
+            annotation_id = ctx.triggered_id["ann_id"]
             return [ann for ann in annotations_data if ann["id"] != annotation_id]
-
         return dash.no_update
