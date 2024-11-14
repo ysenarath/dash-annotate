@@ -1,6 +1,6 @@
 """DashAnnotator component for text annotation in Dash applications."""
 
-from dash import html, dcc, Input, Output, clientside_callback, callback, MATCH
+from dash import html, dcc, Input, Output, clientside_callback, callback, MATCH, ALL
 from dataclasses import asdict
 from typing import List, Optional
 
@@ -8,6 +8,41 @@ from dash_extensions import EventListener
 from dash_annotator.components.base import BaseAnnotation, Annotation
 
 DEFAULT_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif"
+
+
+clientside_callback(
+    """function(id) {
+    const selection = window.getSelection();
+    console.log(selection);
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const textarea = document.querySelector(`#${id}`);
+        console.log(textarea);
+        if (textarea && range.startContainer.parentElement.id === id) {
+            return {
+                start: textarea.selectionStart,
+                end: textarea.selectionEnd
+            };
+        }
+    }
+    return null;
+}""",
+    Input(BaseAnnotation.ids.textarea(ALL), "id"),
+    prevent_initial_call=False,
+)
+
+clientside_callback(
+    """function(n_events, event) {
+    event.forEach(e => {
+        if ("srcElement.scrollTop" in e) {   
+            return e["srcElement.scrollTop"];
+        }
+    });
+}""",
+    Output(BaseAnnotation.ids.visual_text(MATCH), "scrollTop"),
+    Input(BaseAnnotation.ids.textarea_listener(MATCH), "n_events"),
+    Input(BaseAnnotation.ids.textarea_listener(MATCH), "event"),
+)
 
 
 class TextAnnotator(html.Div, BaseAnnotation):
@@ -34,27 +69,42 @@ class TextAnnotator(html.Div, BaseAnnotation):
             "srcElement.selectionEnd",
             "srcElement.id",
         ]
+        scroll_event_props = [
+            *event_props,
+            "srcElement.scrollTop",
+            "srcElement.scrollLeft",
+            "srcElement.scrollHeight",
+            "srcElement.scrollWidth",
+            "srcElement.clientHeight",
+            "srcElement.clientWidth",
+        ]
         events = [
             {"event": "select", "props": event_props},
             {"event": "mouseup", "props": event_props},
             {"event": "keyup", "props": event_props},
             {"event": "focusout", "props": event_props},
+            {"event": "scroll", "props": scroll_event_props},
+            {"event": "mousewheel", "props": scroll_event_props},
+            {"event": "keydown", "props": scroll_event_props},
         ]
         # Initialize parent
+        stores = [
+            dcc.Store(
+                id=self.ids.text_store(id),
+                data=value,
+            ),
+            dcc.Store(
+                id=self.ids.annotations_store(id),
+                data=[asdict(ann) for ann in annotations],
+            ),
+            dcc.Store(
+                id=self.ids.selection_store(id),
+                data=None,
+            ),
+        ]
         super().__init__(
             [
-                dcc.Store(
-                    id=self.ids.text_store(id),
-                    data=value,
-                ),
-                dcc.Store(
-                    id=self.ids.annotations_store(id),
-                    data=[asdict(ann) for ann in annotations],
-                ),
-                dcc.Store(
-                    id=self.ids.selection_store(id),
-                    data=None,
-                ),
+                *stores,
                 html.Div(
                     [
                         EventListener(  # Textarea with event listener
@@ -66,16 +116,22 @@ class TextAnnotator(html.Div, BaseAnnotation):
                                     "position": "absolute",
                                     "top": "0",
                                     "left": "0",
-                                    "right": "0",
-                                    "bottom": "0",
+                                    "width": "100%",
+                                    "height": "100%",
                                     "padding": "0.5rem",
+                                    "fontFamily": DEFAULT_FONT,
                                     "fontSize": "1rem",
                                     "lineHeight": "1rem",
-                                    "backgroundColor": "transparent",
+                                    "border": "none",
                                     "resize": "none",
-                                    "zIndex": "10",
-                                    "fontFamily": DEFAULT_FONT,
-                                    "overflow": "hidden",
+                                    "color": "transparent",
+                                    "caretColor": "black",
+                                    "background": "transparent",
+                                    "whiteSpace": "pre-wrap",
+                                    "overflowWrap": "break-word",
+                                    "overflowY": "auto",
+                                    "zIndex": "2",
+                                    "boxSizing": "border-box",
                                 },
                                 persistence=True,
                                 spellCheck=False,
@@ -91,8 +147,10 @@ class TextAnnotator(html.Div, BaseAnnotation):
                                 "position": "absolute",
                                 "top": "0",
                                 "left": "0",
-                                "right": "0",
-                                "bottom": "0",
+                                # "right": "0",
+                                # "bottom": "0",
+                                "width": "100%",
+                                "height": "100%",
                                 "padding": "0.5rem",
                                 "fontSize": "1rem",
                                 "lineHeight": "1rem",
@@ -108,41 +166,29 @@ class TextAnnotator(html.Div, BaseAnnotation):
                         "left": "0",
                         "right": "0",
                         "bottom": "0",
-                        "overflow": "auto",
+                        "padding": "0.5rem",
+                        "fontFamily": DEFAULT_FONT,
+                        "fontSize": "1rem",
+                        "lineHeight": "1rem",
+                        "whiteSpace": "pre-wrap",
+                        "overflowWrap": "break-word",
+                        "wordWrap": "break-word",
+                        "overflowY": "auto",
+                        "zIndex": "1",
+                        "boxSizing": "border-box",
                     },
                 ),
             ],
             style={
                 "position": "relative",
-                "borderRaadius": "0.5rem",
+                "borderRadius": "0.5rem",
                 "borderWidth": "1px",
                 "boxShadow": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
                 "minHeight": "3rem",
+                # "width": "500px",
+                # "height": "300px",
             },
             id=self.ids.main_container(id),
-        )
-        # Add clientside callback for selection handling
-        clientside_callback(
-            # ClientsideFunction(
-            #     namespace="clientside", function_name="handleTextSelection"
-            # ),
-            """function(id) {
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const textarea = document.querySelector(`#${id}`);
-        console.log(textarea);
-        if (textarea && range.startContainer.parentElement.id === id) {
-            return {
-                start: textarea.selectionStart,
-                end: textarea.selectionEnd
-            };
-        }
-    }
-    return null;
-}""",
-            Input(self.ids.textarea(id), "id"),
-            prevent_initial_call=False,
         )
 
     @callback(
