@@ -12,12 +12,7 @@ import time
 import dash
 from dash import html
 import dash_annotator
-from dash_annotator import (
-    TextAnnotator,
-    register_callbacks,
-    AnnotateButton,
-    AnnotationsList,
-)
+from dash_annotator import TextAnnotator, AnnotateButton, AnnotationList
 
 
 def get_assets_folder():
@@ -35,20 +30,19 @@ app = dash.Dash(
 # Create the layout with the DashAnnotator component
 app.layout = html.Div(
     [
-        TextAnnotator(id="example-annotator", className="h-100"),
+        TextAnnotator(id="example-annotator"),
         AnnotateButton(for_="example-annotator"),
-        AnnotationsList(for_="example-annotator"),
+        AnnotationList(for_="example-annotator"),
     ],
     className="w-100 p-3",
 )
-
-# Register the callbacks
-register_callbacks(app)
 
 if __name__ == "__main__":
     while True:
         try:
             app.run_server(debug=True, port=8050)
+        except KeyboardInterrupt:
+            print("Application stopped by user")
         except Exception as e:
             print(e)
             time.sleep(5)

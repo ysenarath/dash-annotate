@@ -1,18 +1,14 @@
-from dash_annotator.annotator import (
-    Annotation,
+from dash_annotator.components import (
     TextAnnotator,
-    register_callbacks,
+    AnnotationList,
     AnnotateButton,
-    AnnotationsList,
 )
-from dash_annotator.components.annotator import TextAnnotator
 
 __version__ = "0.0.1"
+
 __all__ = [
-    "TextAnnotator",
-    "TextAnnotator",  # New AIO component
     "register_callbacks",
-    "Annotation",
+    "TextAnnotator",
+    "AnnotationList",
     "AnnotateButton",
-    "AnnotationsList",
 ]

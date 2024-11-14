@@ -10,6 +10,8 @@ from dash import (
     State,
     ClientsideFunction,
     clientside_callback,
+    callback,
+    MATCH,
 )
 import dash
 import json
@@ -40,28 +42,126 @@ class Annotation:
 
 
 class TextAnnotator(html.Div):
+    """
+    An All-in-One component for text annotation in Dash applications.
+    """
+
+    class ids:
+        @staticmethod
+        def text_store(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "text-store",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def annotations_store(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "annotations-store",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def selection_store(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "selection-store",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def textarea(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "textarea",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def textarea_listener(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "textarea-listener",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def visual_text(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "visual-text",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def add_button(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "add-button",
+                "aio_id": aio_id,
+            }
+
+        @staticmethod
+        def remove_annotation(aio_id, index):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "remove-annotation",
+                "aio_id": aio_id,
+                "index": index,
+            }
+
+        @staticmethod
+        def annotations_list(aio_id):
+            return {
+                "component": "TextAnnotator",
+                "subcomponent": "annotations-list",
+                "aio_id": aio_id,
+            }
+
     def __init__(
         self,
-        id: str,
+        aio_id: str,
         value: str = "",
         annotations: Optional[List[Annotation]] = None,
         className: str = "",
+        textarea_props: dict = None,
+        button_props: dict = None,
     ):
-        self.id_ = id
+        """
+        Initialize TextAnnotator component.
+
+        Args:
+            aio_id: Unique identifier for this component instance
+            value: Initial text value
+            annotations: Initial list of annotations
+            className: CSS class for the main container
+            textarea_props: Additional props for the textarea
+            button_props: Additional props for the add button
+        """
         if annotations is None:
             annotations = []
+        if textarea_props is None:
+            textarea_props = {}
+        if button_props is None:
+            button_props = {}
+
+        # Stores
         text_store = dcc.Store(
-            id={"type": "text-store", "id": id},
+            id=self.ids.text_store(aio_id),
             data=value,
         )
         annotations_store = dcc.Store(
-            id={"type": "annotations-store", "id": id},
+            id=self.ids.annotations_store(aio_id),
             data=[asdict(ann) for ann in annotations],
         )
         selection_store = dcc.Store(
-            id={"type": "selection-store", "id": id},
+            id=self.ids.selection_store(aio_id),
             data=None,
         )
+
+        # Event listener configuration
         event_props = [
             "srcElement.selectionStart",
             "srcElement.selectionEnd",
@@ -73,14 +173,16 @@ class TextAnnotator(html.Div):
             {"event": "keyup", "props": event_props},
             {"event": "focusout", "props": event_props},
         ]
+
+        # Main container
         main_container = html.Div(
             [
                 html.Div(
                     [
-                        # Textarea for editing - using only supported attributes
+                        # Textarea with event listener
                         EventListener(
                             dcc.Textarea(
-                                id={"type": "textarea", "id": id},
+                                id=self.ids.textarea(aio_id),
                                 value=value,
                                 placeholder="Type or paste text here to annotate...",
                                 className="w-full h-48 p-3 text-lg bg-transparent resize-none absolute top-0 left-0 z-10",
@@ -91,22 +193,39 @@ class TextAnnotator(html.Div):
                                 },
                                 persistence=True,
                                 spellCheck=False,
+                                **textarea_props,
                             ),
                             events=events,
-                            id={"type": "textarea-listener", "id": id},
+                            id=self.ids.textarea_listener(aio_id),
                         ),
-                        # Visual representation div
+                        # Visual text representation
                         html.Div(
-                            id={"type": "visual-text", "id": id},
+                            id=self.ids.visual_text(aio_id),
                             className="w-full h-48 p-3 text-lg whitespace-pre-wrap pointer-events-none",
                         ),
                     ],
                     className="relative border rounded-lg shadow-sm mb-4 w-100",
-                )
+                ),
+                # Annotation controls
+                html.Div(
+                    [
+                        html.Button(
+                            "Add Annotation",
+                            id=self.ids.add_button(aio_id),
+                            className="px-4 py-2 rounded bg-gray-200 text-gray-500",
+                            **button_props,
+                        ),
+                        html.Div(
+                            id=self.ids.annotations_list(aio_id),
+                            className="space-y-2 mt-4",
+                        ),
+                    ]
+                ),
             ],
             className=className,
         )
-        # Call parent constructor with all children
+
+        # Initialize parent
         super().__init__(
             [
                 text_store,
@@ -115,56 +234,28 @@ class TextAnnotator(html.Div):
                 main_container,
             ]
         )
-        # Add custom JavaScript for selection handling
+
+        # Add clientside callback for selection handling
         clientside_callback(
             ClientsideFunction(
                 namespace="clientside", function_name="handleTextSelection"
             ),
-            Input({"type": "textarea", "id": id}, "id"),
+            Input(self.ids.textarea(aio_id), "id"),
             prevent_initial_call=False,
         )
 
-
-class AnnotateButton(html.Button):
-    def __init__(self, for_: str, label: str = "Add Annotation"):
-        super().__init__(
-            label,
-            id={"type": "add-button", "id": for_},
-            className="px-4 py-2 rounded bg-gray-200 text-gray-500",
-        )
-
-
-class AnnotationsList(html.Div):
-    def __init__(self, for_: str):
-        super().__init__(
-            id={"type": "annotations-list", "id": for_},
-            className="space-y-2",
-        )
-
-
-def register_callbacks(app: dash.Dash) -> None:
-    """
-    Register all callbacks for the DashAnnotator component.
-
-    This function sets up all the necessary callbacks for the component to function,
-    including text updates, selection handling, and annotation management.
-
-    Args:
-        app: The Dash application instance to register callbacks with
-    """
-
-    @app.callback(
-        Output({"type": "text-store", "id": dash.MATCH}, "data"),
-        Input({"type": "textarea", "id": dash.MATCH}, "value"),
+    @callback(
+        Output(ids.text_store(MATCH), "data"),
+        Input(ids.textarea(MATCH), "value"),
     )
     def update_text_store(value):
         """Update the text store when textarea changes."""
         return value
 
-    @app.callback(
-        Output({"type": "selection-store", "id": dash.MATCH}, "data"),
-        Input({"type": "textarea-listener", "id": dash.MATCH}, "n_events"),
-        Input({"type": "textarea-listener", "id": dash.MATCH}, "event"),
+    @callback(
+        Output(ids.selection_store(MATCH), "data"),
+        Input(ids.textarea_listener(MATCH), "n_events"),
+        Input(ids.textarea_listener(MATCH), "event"),
     )
     def update_selection_store(n_events, event):
         """Update the selection store when selection changes."""
@@ -175,10 +266,10 @@ def register_callbacks(app: dash.Dash) -> None:
                 return {"start": start, "end": end}
         return None
 
-    @app.callback(
-        Output({"type": "visual-text", "id": dash.MATCH}, "children"),
-        Input({"type": "text-store", "id": dash.MATCH}, "data"),
-        Input({"type": "annotations-store", "id": dash.MATCH}, "data"),
+    @callback(
+        Output(ids.visual_text(MATCH), "children"),
+        Input(ids.text_store(MATCH), "data"),
+        Input(ids.annotations_store(MATCH), "data"),
     )
     def update_visual_text(text, annotations_data):
         """Update the visual representation of text with annotations."""
@@ -187,16 +278,14 @@ def register_callbacks(app: dash.Dash) -> None:
         if not annotations_data:
             annotations_data = []
 
-        # Create a list of all boundary points (start and end positions)
+        # Create a list of all boundary points
         boundaries = []
         for ann in annotations_data:
             boundaries.append((ann["start"], "start", ann["id"]))
             boundaries.append((ann["end"], "end", ann["id"]))
 
         # Sort boundaries by position
-        boundaries.sort(
-            key=lambda x: (x[0], x[1] != "end")
-        )  # Ensure "end" comes after "start" at same position
+        boundaries.sort(key=lambda x: (x[0], x[1] != "end"))
 
         # Build text parts with proper handling of overlapping annotations
         parts = []
@@ -204,17 +293,14 @@ def register_callbacks(app: dash.Dash) -> None:
         active_annotations = set()
 
         for pos, boundary_type, ann_id in boundaries:
-            # Add non-annotated text before this boundary if there is any
             if pos > last_pos:
                 if not active_annotations:
-                    # No active annotations - render as plain text
                     parts.append(html.Span(text[last_pos:pos], id=f"text-{last_pos}"))
                 else:
-                    # Text with active annotations
                     parts.append(
                         html.Span(
                             text[last_pos:pos],
-                            className=f"border-b-2 border-blue-400 bg-blue-50",
+                            className="border-b-2 border-blue-400 bg-blue-50",
                             style={
                                 "opacity": min(0.2 + len(active_annotations) * 0.2, 1)
                             },
@@ -222,7 +308,6 @@ def register_callbacks(app: dash.Dash) -> None:
                         )
                     )
 
-            # Update active annotations set
             if boundary_type == "start":
                 active_annotations.add(ann_id)
             else:
@@ -230,16 +315,15 @@ def register_callbacks(app: dash.Dash) -> None:
 
             last_pos = pos
 
-        # Add remaining text after last boundary
         if last_pos < len(text):
             parts.append(html.Span(text[last_pos:], id=f"text-{last_pos}"))
 
         return parts
 
-    @app.callback(
-        Output({"type": "add-button", "id": dash.MATCH}, "className"),
-        Input({"type": "selection-store", "id": dash.MATCH}, "data"),
-        Input({"type": "textarea", "id": dash.MATCH}, "n_blur"),
+    @callback(
+        Output(ids.add_button(MATCH), "className"),
+        Input(ids.selection_store(MATCH), "data"),
+        Input(ids.textarea(MATCH), "n_blur"),
     )
     def update_button_state(selection_data, n_blur):
         """Update the Add Annotation button state based on text selection."""
@@ -254,13 +338,21 @@ def register_callbacks(app: dash.Dash) -> None:
             else "bg-gray-200 text-gray-500 cursor-not-allowed"
         )
 
-    @app.callback(
-        Output({"type": "annotations-store", "id": dash.MATCH}, "data"),
-        Input({"type": "add-button", "id": dash.MATCH}, "n_clicks"),
-        Input({"type": "remove-annotation", "index": dash.ALL}, "n_clicks"),
-        State({"type": "text-store", "id": dash.MATCH}, "data"),
-        State({"type": "selection-store", "id": dash.MATCH}, "data"),
-        State({"type": "annotations-store", "id": dash.MATCH}, "data"),
+    @callback(
+        Output(ids.annotations_store(MATCH), "data"),
+        Input(ids.add_button(MATCH), "n_clicks"),
+        Input(
+            {
+                "component": "TextAnnotator",
+                "subcomponent": "remove-annotation",
+                "aio_id": MATCH,
+                "index": dash.ALL,
+            },
+            "n_clicks",
+        ),
+        State(ids.text_store(MATCH), "data"),
+        State(ids.selection_store(MATCH), "data"),
+        State(ids.annotations_store(MATCH), "data"),
         prevent_initial_call=True,
     )
     def manage_annotations(
@@ -273,7 +365,7 @@ def register_callbacks(app: dash.Dash) -> None:
         trigger = ctx.triggered[0]["prop_id"]
         if not annotations_data:
             annotations_data = []
-        # Handle adding new annotation
+
         if "add-button" in trigger and selection_data:
             new_annotation = {
                 "id": str(uuid.uuid4()),
@@ -283,15 +375,16 @@ def register_callbacks(app: dash.Dash) -> None:
                 "note": "Sample annotation note",
             }
             return annotations_data + [new_annotation]
-        # Handle removing annotation
+
         if "remove-annotation" in trigger:
             annotation_id = json.loads(trigger.split(".")[0])["index"]
             return [ann for ann in annotations_data if ann["id"] != annotation_id]
+
         return dash.no_update
 
-    @app.callback(
-        Output({"type": "annotations-list", "id": dash.MATCH}, "children"),
-        Input({"type": "annotations-store", "id": dash.MATCH}, "data"),
+    @callback(
+        Output(ids.annotations_list(MATCH), "children"),
+        Input(ids.annotations_store(MATCH), "data"),
     )
     def update_annotations_list(annotations_data):
         """Update the annotations list display."""
@@ -309,7 +402,7 @@ def register_callbacks(app: dash.Dash) -> None:
                     ),
                     html.Button(
                         "Remove",
-                        id={"type": "remove-annotation", "index": ann["id"]},
+                        id=TextAnnotator.ids.remove_annotation(MATCH, ann["id"]),
                         className="text-red-500 hover:text-red-700",
                     ),
                 ],

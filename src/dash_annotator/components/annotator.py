@@ -1,166 +1,42 @@
-"""
-DashAnnotator component for text annotation in Dash applications.
-"""
+"""DashAnnotator component for text annotation in Dash applications."""
 
 from dash import (
     html,
     dcc,
     Input,
     Output,
-    State,
     ClientsideFunction,
     clientside_callback,
     callback,
     MATCH,
 )
-import dash
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
 from typing import List, Optional
-import uuid
+
 from dash_extensions import EventListener
+from dash_annotator.components.base import BaseAnnotation, Annotation
+
+DEFAULT_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif"
 
 
-@dataclass
-class Annotation:
-    """
-    Represents a text annotation with position and content.
-
-    Attributes:
-        id: Unique identifier for the annotation
-        start: Starting position in the text
-        end: Ending position in the text
-        text: The annotated text content
-        note: Additional note or comment about the annotation
-    """
-
-    id: str
-    start: int
-    end: int
-    text: str
-    note: str
-
-
-class TextAnnotator(html.Div):
+class TextAnnotator(html.Div, BaseAnnotation):
     """
     An All-in-One component for text annotation in Dash applications.
     """
 
-    class ids:
-        @staticmethod
-        def text_store(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "text-store",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def annotations_store(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "annotations-store",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def selection_store(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "selection-store",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def textarea(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "textarea",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def textarea_listener(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "textarea-listener",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def visual_text(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "visual-text",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def add_button(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "add-button",
-                "aio_id": aio_id,
-            }
-
-        @staticmethod
-        def remove_annotation(aio_id, index):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "remove-annotation",
-                "aio_id": aio_id,
-                "index": index,
-            }
-
-        @staticmethod
-        def annotations_list(aio_id):
-            return {
-                "component": "TextAnnotator",
-                "subcomponent": "annotations-list",
-                "aio_id": aio_id,
-            }
+    ids = BaseAnnotation.ids
 
     def __init__(
         self,
-        aio_id: str,
+        id: str,
         value: str = "",
         annotations: Optional[List[Annotation]] = None,
-        className: str = "",
         textarea_props: dict = None,
-        button_props: dict = None,
     ):
-        """
-        Initialize TextAnnotator component.
-
-        Args:
-            aio_id: Unique identifier for this component instance
-            value: Initial text value
-            annotations: Initial list of annotations
-            className: CSS class for the main container
-            textarea_props: Additional props for the textarea
-            button_props: Additional props for the add button
-        """
         if annotations is None:
             annotations = []
         if textarea_props is None:
             textarea_props = {}
-        if button_props is None:
-            button_props = {}
-
-        # Stores
-        text_store = dcc.Store(
-            id=self.ids.text_store(aio_id),
-            data=value,
-        )
-        annotations_store = dcc.Store(
-            id=self.ids.annotations_store(aio_id),
-            data=[asdict(ann) for ann in annotations],
-        )
-        selection_store = dcc.Store(
-            id=self.ids.selection_store(aio_id),
-            data=None,
-        )
-
         # Event listener configuration
         event_props = [
             "srcElement.selectionStart",
@@ -173,74 +49,93 @@ class TextAnnotator(html.Div):
             {"event": "keyup", "props": event_props},
             {"event": "focusout", "props": event_props},
         ]
-
-        # Main container
-        main_container = html.Div(
+        # Initialize parent
+        super().__init__(
             [
+                dcc.Store(
+                    id=self.ids.text_store(id),
+                    data=value,
+                ),
+                dcc.Store(
+                    id=self.ids.annotations_store(id),
+                    data=[asdict(ann) for ann in annotations],
+                ),
+                dcc.Store(
+                    id=self.ids.selection_store(id),
+                    data=None,
+                ),
                 html.Div(
                     [
-                        # Textarea with event listener
-                        EventListener(
+                        EventListener(  # Textarea with event listener
                             dcc.Textarea(
-                                id=self.ids.textarea(aio_id),
+                                id=self.ids.textarea(id),
                                 value=value,
                                 placeholder="Type or paste text here to annotate...",
-                                className="w-full h-48 p-3 text-lg bg-transparent resize-none absolute top-0 left-0 z-10",
                                 style={
-                                    "spellCheck": "false",
-                                    "backgroundColor": "transparent",
-                                    "caretColor": "black",
+                                    "position": "absolute",
+                                    "top": "0",
+                                    "left": "0",
+                                    "right": "0",
+                                    "bottom": "0",
+                                    "padding": "0.5rem",
+                                    "font-size": "1rem",
+                                    "line-height": "1rem",
+                                    "background-color": "transparent",
+                                    "resize": "none",
+                                    "zIndex": "10",
+                                    "font-family": DEFAULT_FONT,
+                                    "overflow": "hidden",
                                 },
                                 persistence=True,
                                 spellCheck=False,
                                 **textarea_props,
                             ),
                             events=events,
-                            id=self.ids.textarea_listener(aio_id),
+                            id=self.ids.textarea_listener(id),
                         ),
                         # Visual text representation
                         html.Div(
-                            id=self.ids.visual_text(aio_id),
-                            className="w-full h-48 p-3 text-lg whitespace-pre-wrap pointer-events-none",
+                            id=self.ids.visual_text(id),
+                            style={
+                                "position": "absolute",
+                                "top": "0",
+                                "left": "0",
+                                "right": "0",
+                                "bottom": "0",
+                                "padding": "0.5rem",
+                                "font-size": "1rem",
+                                "line-height": "1rem",
+                                "white-space": "pre-wrap",
+                                "pointer-events": "none",
+                                "font-family": DEFAULT_FONT,
+                            },
                         ),
                     ],
-                    className="relative border rounded-lg shadow-sm mb-4 w-100",
-                ),
-                # Annotation controls
-                html.Div(
-                    [
-                        html.Button(
-                            "Add Annotation",
-                            id=self.ids.add_button(aio_id),
-                            className="px-4 py-2 rounded bg-gray-200 text-gray-500",
-                            **button_props,
-                        ),
-                        html.Div(
-                            id=self.ids.annotations_list(aio_id),
-                            className="space-y-2 mt-4",
-                        ),
-                    ]
+                    style={
+                        "position": "absolute",
+                        "top": "0",
+                        "left": "0",
+                        "right": "0",
+                        "bottom": "0",
+                        "overflow": "auto",
+                    },
                 ),
             ],
-            className=className,
+            style={
+                "position": "relative",
+                "border-raadius": "0.5rem",
+                "border-width": "1px",
+                "box-shadow": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                "min-height": "3rem",
+            },
+            id=self.ids.main_container(id),
         )
-
-        # Initialize parent
-        super().__init__(
-            [
-                text_store,
-                annotations_store,
-                selection_store,
-                main_container,
-            ]
-        )
-
         # Add clientside callback for selection handling
         clientside_callback(
             ClientsideFunction(
                 namespace="clientside", function_name="handleTextSelection"
             ),
-            Input(self.ids.textarea(aio_id), "id"),
+            Input(self.ids.textarea(id), "id"),
             prevent_initial_call=False,
         )
 
@@ -300,9 +195,12 @@ class TextAnnotator(html.Div):
                     parts.append(
                         html.Span(
                             text[last_pos:pos],
-                            className=f"border-b-2 border-blue-400 bg-blue-50",
+                            # className=f"border-b-2 border-blue-400 bg-blue-50",
                             style={
-                                "opacity": min(0.2 + len(active_annotations) * 0.2, 1)
+                                "opacity": min(0.2 + len(active_annotations) * 0.2, 1),
+                                "border-bottom-width": "2px",
+                                "border-color": "blue",
+                                "background-color": "blue",
                             },
                             id=f"overlap-{'-'.join(sorted(active_annotations))}",
                         )
@@ -319,94 +217,3 @@ class TextAnnotator(html.Div):
             parts.append(html.Span(text[last_pos:], id=f"text-{last_pos}"))
 
         return parts
-
-    @callback(
-        Output(ids.add_button(MATCH), "className"),
-        Input(ids.selection_store(MATCH), "data"),
-        Input(ids.textarea(MATCH), "n_blur"),
-    )
-    def update_button_state(selection_data, n_blur):
-        """Update the Add Annotation button state based on text selection."""
-        if not dash.callback_context.triggered:
-            return None
-        n_blur_prop = dash.callback_context.triggered[0]["prop_id"]
-        has_lost_focus = n_blur_prop.endswith(".n_blur")
-        base_class = "px-4 py-2 rounded "
-        return base_class + (
-            "bg-blue-500 text-white hover:bg-blue-600"
-            if selection_data and not has_lost_focus
-            else "bg-gray-200 text-gray-500 cursor-not-allowed"
-        )
-
-    @callback(
-        Output(ids.annotations_store(MATCH), "data"),
-        Input(ids.add_button(MATCH), "n_clicks"),
-        Input(
-            {
-                "component": "TextAnnotator",
-                "subcomponent": "remove-annotation",
-                "aio_id": MATCH,
-                "index": dash.ALL,
-            },
-            "n_clicks",
-        ),
-        State(ids.text_store(MATCH), "data"),
-        State(ids.selection_store(MATCH), "data"),
-        State(ids.annotations_store(MATCH), "data"),
-        prevent_initial_call=True,
-    )
-    def manage_annotations(
-        add_clicks, remove_clicks, text, selection_data, annotations_data
-    ):
-        """Handle adding and removing annotations."""
-        ctx = dash.callback_context
-        if not ctx.triggered:
-            return dash.no_update
-        trigger = ctx.triggered[0]["prop_id"]
-        if not annotations_data:
-            annotations_data = []
-
-        if "add-button" in trigger and selection_data:
-            new_annotation = {
-                "id": str(uuid.uuid4()),
-                "start": selection_data["start"],
-                "end": selection_data["end"],
-                "text": text[selection_data["start"] : selection_data["end"]],
-                "note": "Sample annotation note",
-            }
-            return annotations_data + [new_annotation]
-
-        if "remove-annotation" in trigger:
-            annotation_id = json.loads(trigger.split(".")[0])["index"]
-            return [ann for ann in annotations_data if ann["id"] != annotation_id]
-
-        return dash.no_update
-
-    @callback(
-        Output(ids.annotations_list(MATCH), "children"),
-        Input(ids.annotations_store(MATCH), "data"),
-    )
-    def update_annotations_list(annotations_data):
-        """Update the annotations list display."""
-        if not annotations_data:
-            return []
-        return [
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.Div(f'"{ann["text"]}"', className="font-medium"),
-                            html.Div(ann["note"], className="text-sm text-gray-600"),
-                        ],
-                        className="flex-1",
-                    ),
-                    html.Button(
-                        "Remove",
-                        id=TextAnnotator.ids.remove_annotation(MATCH, ann["id"]),
-                        className="text-red-500 hover:text-red-700",
-                    ),
-                ],
-                className="flex items-start gap-2 p-2 bg-gray-50 rounded",
-            )
-            for ann in annotations_data
-        ]
